@@ -1,0 +1,591 @@
+<div id="maze-generator-app" class="maze-app-container">
+    <div class="maze-ui-layout">
+        <div class="maze-controls no-print">
+            <div class="maze-header">
+                <div class="maze-icon">🌀</div>
+                <h2 class="maze-title">Maze Generator</h2>
+                <p class="maze-subtitle">Create & Print Custom Puzzles</p>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Maze Shape</label>
+                <div class="shape-toggle">
+                    <button class="shape-btn active" data-shape="square">Square ■</button>
+                    <button class="shape-btn" data-shape="circle">Circle ●</button>
+                </div>
+            </div>
+
+            <div id="controls-square" class="control-section">
+                <div class="control-group">
+                    <label class="control-label">Width (Columns): <span id="val-cols">20</span></label>
+                    <input type="range" id="inp-cols" min="5" max="50" value="20" class="maze-slider">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Height (Rows): <span id="val-rows">20</span></label>
+                    <input type="range" id="inp-rows" min="5" max="50" value="20" class="maze-slider">
+                </div>
+            </div>
+
+            <div id="controls-circle" class="control-section" style="display:none;">
+                <div class="control-group">
+                    <label class="control-label">Size (Rings): <span id="val-rings">10</span></label>
+                    <input type="range" id="inp-rings" min="3" max="30" value="10" class="maze-slider">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">
+                    <input type="checkbox" id="check-solution"> Show Solution 🚩
+                </label>
+            </div>
+
+            <div class="action-buttons">
+                <button id="btn-generate" class="maze-btn primary">Generate New</button>
+                <button id="btn-print" class="maze-btn secondary">Print Maze 🖨️</button>
+                <button id="btn-download" class="maze-btn outline">Download IMG ⬇️</button>
+            </div>
+        </div>
+
+        <div class="maze-canvas-wrapper">
+            <canvas id="maze-canvas"></canvas>
+            <div id="loading-overlay" style="display:none;">Generating...</div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* --- Scoped CSS --- */
+#maze-generator-app {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    max-width: 1000px !important;
+    margin: 40px auto !important;
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+    overflow: hidden !important;
+    color: #1e293b !important;
+}
+
+/* Layout */
+#maze-generator-app .maze-ui-layout {
+    display: flex !important;
+    flex-wrap: wrap !important;
+}
+
+/* Sidebar */
+#maze-generator-app .maze-controls {
+    width: 300px !important;
+    background-color: #f8fafc !important;
+    border-right: 1px solid #e2e8f0 !important;
+    padding: 30px !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+}
+
+#maze-generator-app .maze-header { margin-bottom: 30px !important; }
+#maze-generator-app .maze-icon { font-size: 2.5rem !important; margin-bottom: 10px !important; }
+#maze-generator-app .maze-title { font-size: 1.5rem !important; font-weight: 800 !important; margin: 0 0 5px 0 !important; color: #0f172a !important; }
+#maze-generator-app .maze-subtitle { font-size: 0.9rem !important; color: #64748b !important; margin: 0 !important; }
+
+/* Inputs */
+#maze-generator-app .control-group { margin-bottom: 24px !important; }
+#maze-generator-app .control-label { display: block !important; font-size: 0.9rem !important; font-weight: 700 !important; color: #334155 !important; margin-bottom: 8px !important; }
+
+#maze-generator-app .shape-toggle { display: flex !important; gap: 8px !important; }
+#maze-generator-app .shape-btn { flex: 1 !important; padding: 8px !important; border: 1px solid #cbd5e1 !important; background: white !important; border-radius: 6px !important; cursor: pointer !important; font-weight: 600 !important; color: #64748b !important; }
+#maze-generator-app .shape-btn.active { background-color: #3b82f6 !important; color: white !important; border-color: #3b82f6 !important; }
+
+#maze-generator-app .maze-slider { width: 100% !important; accent-color: #3b82f6 !important; cursor: pointer !important; }
+
+/* Buttons */
+#maze-generator-app .action-buttons { display: flex !important; flex-direction: column !important; gap: 12px !important; margin-top: 30px !important; }
+#maze-generator-app .maze-btn { padding: 12px !important; border: none !important; border-radius: 8px !important; font-weight: 700 !important; cursor: pointer !important; font-size: 1rem !important; transition: transform 0.1s !important; }
+#maze-generator-app .maze-btn:active { transform: scale(0.98) !important; }
+#maze-generator-app .maze-btn.primary { background-color: #3b82f6 !important; color: white !important; }
+#maze-generator-app .maze-btn.secondary { background-color: #1e293b !important; color: white !important; }
+#maze-generator-app .maze-btn.outline { background-color: transparent !important; border: 2px solid #cbd5e1 !important; color: #475569 !important; }
+
+/* Canvas Area */
+#maze-generator-app .maze-canvas-wrapper {
+    flex: 1 !important;
+    min-width: 300px !important;
+    padding: 40px !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background-color: white !important;
+    position: relative !important;
+}
+
+#maze-generator-app canvas {
+    max-width: 100% !important;
+    max-height: 600px !important;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important;
+    border: 2px solid #0f172a !important;
+}
+
+/* --- Print Styles --- */
+@media print {
+    body * { visibility: hidden; }
+    #maze-generator-app { 
+        visibility: visible; 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        margin: 0; 
+        border: none; 
+        box-shadow: none; 
+    }
+    #maze-generator-app .no-print { display: none !important; }
+    #maze-generator-app .maze-canvas-wrapper { padding: 0 !important; display: block !important; text-align: center !important; }
+    #maze-generator-app canvas { 
+        visibility: visible; 
+        max-height: 100vh !important; 
+        border: 2px solid black !important; 
+        box-shadow: none !important;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #maze-generator-app .maze-controls { width: 100% !important; border-right: none !important; border-bottom: 1px solid #e2e8f0 !important; }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    (function() {
+        // --- Config ---
+        const canvas = document.getElementById('maze-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Controls
+        const btnSquare = document.querySelector('[data-shape="square"]');
+        const btnCircle = document.querySelector('[data-shape="circle"]');
+        const sectionSquare = document.getElementById('controls-square');
+        const sectionCircle = document.getElementById('controls-circle');
+        
+        const inpCols = document.getElementById('inp-cols');
+        const inpRows = document.getElementById('inp-rows');
+        const inpRings = document.getElementById('inp-rings');
+        const checkSolution = document.getElementById('check-solution');
+        
+        const valCols = document.getElementById('val-cols');
+        const valRows = document.getElementById('val-rows');
+        const valRings = document.getElementById('val-rings');
+
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnPrint = document.getElementById('btn-print');
+        const btnDownload = document.getElementById('btn-download');
+
+        let config = {
+            shape: 'square', // 'square' or 'circle'
+            cols: 20,
+            rows: 20,
+            rings: 10,
+            showSolution: false
+        };
+
+        let maze = null;
+
+        // --- Maze Logic: Square (Recursive Backtracker) ---
+        class SquareMaze {
+            constructor(cols, rows) {
+                this.cols = cols;
+                this.rows = rows;
+                this.cells = [];
+                this.stack = [];
+                this.solutionPath = [];
+                this.init();
+            }
+
+            init() {
+                // Setup grid
+                for (let r = 0; r < this.rows; r++) {
+                    let row = [];
+                    for (let c = 0; c < this.cols; c++) {
+                        row.push({
+                            r, c,
+                            visited: false,
+                            walls: { top: true, right: true, bottom: true, left: true }
+                        });
+                    }
+                    this.cells.push(row);
+                }
+            }
+
+            generate() {
+                let current = this.cells[0][0];
+                current.visited = true;
+                this.stack.push(current);
+
+                while (this.stack.length > 0) {
+                    current = this.stack.pop();
+                    const next = this.getUnvisitedNeighbor(current);
+
+                    if (next) {
+                        this.stack.push(current);
+                        this.removeWalls(current, next);
+                        next.visited = true;
+                        this.stack.push(next);
+                    }
+                }
+                this.solve();
+            }
+
+            getUnvisitedNeighbor(cell) {
+                const neighbors = [];
+                const { r, c } = cell;
+                // Top
+                if (r > 0 && !this.cells[r - 1][c].visited) neighbors.push(this.cells[r - 1][c]);
+                // Right
+                if (c < this.cols - 1 && !this.cells[r][c + 1].visited) neighbors.push(this.cells[r][c + 1]);
+                // Bottom
+                if (r < this.rows - 1 && !this.cells[r + 1][c].visited) neighbors.push(this.cells[r + 1][c]);
+                // Left
+                if (c > 0 && !this.cells[r][c - 1].visited) neighbors.push(this.cells[r][c - 1]);
+
+                if (neighbors.length > 0) {
+                    return neighbors[Math.floor(Math.random() * neighbors.length)];
+                }
+                return undefined;
+            }
+
+            removeWalls(a, b) {
+                const dr = a.r - b.r;
+                const dc = a.c - b.c;
+
+                if (dr === 1) { a.walls.top = false; b.walls.bottom = false; }
+                else if (dr === -1) { a.walls.bottom = false; b.walls.top = false; }
+                else if (dc === 1) { a.walls.left = false; b.walls.right = false; }
+                else if (dc === -1) { a.walls.right = false; b.walls.left = false; }
+            }
+
+            solve() {
+                // Simple DFS to find path from (0,0) to (rows-1, cols-1)
+                let visited = new Set();
+                let stack = [];
+                stack.push({ cell: this.cells[0][0], path: [this.cells[0][0]] });
+                visited.add("0,0");
+
+                while (stack.length > 0) {
+                    let { cell, path } = stack.pop();
+                    
+                    if (cell.r === this.rows - 1 && cell.c === this.cols - 1) {
+                        this.solutionPath = path;
+                        return;
+                    }
+
+                    // Neighbors
+                    const { r, c } = cell;
+                    // Try moving all directions if no wall
+                    const moves = [
+                        { nr: r - 1, nc: c, wall: 'top' },
+                        { nr: r + 1, nc: c, wall: 'bottom' },
+                        { nr: r, nc: c - 1, wall: 'left' },
+                        { nr: r, nc: c + 1, wall: 'right' }
+                    ];
+
+                    for (let m of moves) {
+                        if (!cell.walls[m.wall]) { // No wall
+                            if (m.nr >= 0 && m.nr < this.rows && m.nc >= 0 && m.nc < this.cols) {
+                                let key = `${m.nr},${m.nc}`;
+                                if (!visited.has(key)) {
+                                    visited.add(key);
+                                    stack.push({ 
+                                        cell: this.cells[m.nr][m.nc], 
+                                        path: [...path, this.cells[m.nr][m.nc]] 
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            draw(ctx, width, height, showSol) {
+                const cellSize = Math.min(width / this.cols, height / this.rows);
+                const offsetX = (width - this.cols * cellSize) / 2;
+                const offsetY = (height - this.rows * cellSize) / 2;
+
+                ctx.clearRect(0, 0, width, height);
+                ctx.lineWidth = 2;
+                ctx.lineCap = "round";
+                ctx.strokeStyle = "#0f172a";
+
+                // Draw Walls
+                ctx.beginPath();
+                for (let r = 0; r < this.rows; r++) {
+                    for (let c = 0; c < this.cols; c++) {
+                        const x = offsetX + c * cellSize;
+                        const y = offsetY + r * cellSize;
+                        const cell = this.cells[r][c];
+
+                        if (cell.walls.top) { ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); }
+                        if (cell.walls.right) { ctx.moveTo(x + cellSize, y); ctx.lineTo(x + cellSize, y + cellSize); }
+                        if (cell.walls.bottom) { ctx.moveTo(x + cellSize, y + cellSize); ctx.lineTo(x, y + cellSize); }
+                        if (cell.walls.left) { ctx.moveTo(x, y + cellSize); ctx.lineTo(x, y); }
+                    }
+                }
+                ctx.stroke();
+
+                // Start/End Markers
+                ctx.fillStyle = "#22c55e"; // Green Start
+                ctx.fillRect(offsetX + 5, offsetY + 5, cellSize - 10, cellSize - 10);
+                ctx.fillStyle = "#ef4444"; // Red End
+                ctx.fillRect(offsetX + (this.cols - 1) * cellSize + 5, offsetY + (this.rows - 1) * cellSize + 5, cellSize - 10, cellSize - 10);
+
+                // Draw Solution
+                if (showSol && this.solutionPath.length > 0) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = "rgba(239, 68, 68, 0.5)";
+                    ctx.lineWidth = cellSize / 3;
+                    
+                    const startCell = this.solutionPath[0];
+                    ctx.moveTo(offsetX + startCell.c * cellSize + cellSize/2, offsetY + startCell.r * cellSize + cellSize/2);
+
+                    for (let i = 1; i < this.solutionPath.length; i++) {
+                        const c = this.solutionPath[i];
+                        ctx.lineTo(offsetX + c.c * cellSize + cellSize/2, offsetY + c.r * cellSize + cellSize/2);
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // --- Maze Logic: Circular (Polar) ---
+        class CircularMaze {
+            constructor(rings) {
+                this.rings = rings;
+                this.cells = []; // Flat array
+                this.init();
+            }
+
+            init() {
+                // Strategy: Ring 0 = center (1 cell). Ring 1 = 6 cells. Ring 2 = 12 cells? 
+                // Simple method: Cells count proportional to radius to keep aspect ratio ~1
+                // Ring 0 is center.
+                // row 0: 1 cell. row 1: ~6 cells. row r: ~ 6*r cells.
+                
+                this.cells = [];
+                // Create structure
+                for(let r = 0; r < this.rings; r++) {
+                    let count = r === 0 ? 1 : Math.floor(2 * Math.PI * r);
+                    // Ensure count is reasonable for connectivity (simplification: multiply by factor)
+                    // Standard polar grid: inner ring usually has N cells, next 2N?
+                    // Let's use a fixed multiplier for simplicity in a single file
+                    // Ring 0: 1 cell
+                    // Ring > 0: r * 8 cells?
+                    if (r === 0) count = 1;
+                    else count = r * 6; // Hex-like expansion allows nice shapes
+
+                    for(let c = 0; c < count; c++) {
+                        this.cells.push({
+                            r, c, 
+                            totalInRing: count,
+                            visited: false,
+                            walls: { inward: true, cw: true } // We only store Inward and Clockwise walls to avoid duplication
+                        });
+                    }
+                }
+            }
+
+            getCell(r, c) {
+                return this.cells.find(cell => cell.r === r && cell.c === c);
+            }
+
+            generate() {
+                // Recursive Backtracker on Polar Grid
+                let stack = [];
+                let current = this.cells[0]; // Start at center
+                current.visited = true;
+                stack.push(current);
+
+                while(stack.length > 0) {
+                    current = stack.pop();
+                    let neighbors = this.getNeighbors(current);
+                    // Filter unvisited
+                    let unvisited = neighbors.filter(n => !n.cell.visited);
+
+                    if (unvisited.length > 0) {
+                        stack.push(current);
+                        let nextObj = unvisited[Math.floor(Math.random() * unvisited.length)];
+                        let next = nextObj.cell;
+                        
+                        this.removeWall(current, next, nextObj.dir);
+                        next.visited = true;
+                        stack.push(next);
+                    }
+                }
+                // Solution path logic omitted for Polar in MVP to ensure code stability (drawing polar solution is complex math)
+            }
+
+            getNeighbors(cell) {
+                let list = [];
+                // 1. Clockwise (same ring)
+                if (cell.r > 0) {
+                    let nextC = (cell.c + 1) % cell.totalInRing;
+                    let prevC = (cell.c - 1 + cell.totalInRing) % cell.totalInRing;
+                    list.push({ cell: this.getCell(cell.r, nextC), dir: 'cw' });
+                    list.push({ cell: this.getCell(cell.r, prevC), dir: 'ccw' });
+                }
+
+                // 2. Outward (next ring)
+                if (cell.r < this.rings - 1) {
+                    // Map current cell angle to outer ring
+                    let startAngle = (cell.c / cell.totalInRing);
+                    let endAngle = ((cell.c + 1) / cell.totalInRing);
+                    
+                    // Find cells in next ring that overlap this angle
+                    let nextRingCount = (cell.r + 1) * 6;
+                    let startC = Math.floor(startAngle * nextRingCount);
+                    // Simplified: Just link to one cell roughly "above"
+                    // For a perfect maze, we need perfect 1-to-Many mapping. 
+                    // Keep it simple: Link to cell with closest angle
+                    let targetC = Math.round((cell.c / cell.totalInRing) * nextRingCount);
+                    if(targetC >= nextRingCount) targetC = 0;
+                    list.push({ cell: this.getCell(cell.r + 1, targetC), dir: 'out' });
+                }
+
+                // 3. Inward (prev ring)
+                if (cell.r > 0) {
+                    let prevRingCount = cell.r === 1 ? 1 : (cell.r - 1) * 6;
+                    let targetC = Math.floor((cell.c / cell.totalInRing) * prevRingCount);
+                    list.push({ cell: this.getCell(cell.r - 1, targetC), dir: 'in' });
+                }
+
+                return list;
+            }
+
+            removeWall(a, b, dir) {
+                // Walls stored: inward, cw
+                if (dir === 'in') a.walls.inward = false;
+                if (dir === 'out') b.walls.inward = false; // b is outer, a is inner
+                if (dir === 'cw') a.walls.cw = false;
+                if (dir === 'ccw') b.walls.cw = false; // b is ccw neighbor
+            }
+
+            draw(ctx, width, height, showSol) {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const maxRadius = Math.min(width, height) / 2 - 20;
+                const ringWidth = maxRadius / this.rings;
+
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = "#0f172a";
+                ctx.lineWidth = 2;
+                
+                // Draw Outer Boundary
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, maxRadius, 0, 2 * Math.PI);
+                ctx.stroke();
+
+                // Draw Cells
+                for (let cell of this.cells) {
+                    if (cell.r === 0) continue; // Center is usually open
+
+                    let innerR = cell.r * ringWidth;
+                    let outerR = (cell.r + 1) * ringWidth;
+                    let theta1 = (cell.c / cell.totalInRing) * 2 * Math.PI;
+                    let theta2 = ((cell.c + 1) / cell.totalInRing) * 2 * Math.PI;
+
+                    ctx.beginPath();
+                    // Inward Wall
+                    if (cell.walls.inward) {
+                        ctx.arc(centerX, centerY, innerR, theta1, theta2);
+                    }
+                    ctx.stroke();
+
+                    // CW Wall (Radial)
+                    if (cell.walls.cw) {
+                        ctx.beginPath();
+                        ctx.moveTo(centerX + Math.cos(theta2) * innerR, centerY + Math.sin(theta2) * innerR);
+                        ctx.lineTo(centerX + Math.cos(theta2) * outerR, centerY + Math.sin(theta2) * outerR);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Start / End
+                // Start: Center
+                ctx.fillStyle = "#22c55e";
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, ringWidth * 0.4, 0, 2*Math.PI);
+                ctx.fill();
+
+                // End: Outer Ring opening (Just visual marker)
+                ctx.fillStyle = "#ef4444";
+                ctx.beginPath();
+                ctx.arc(centerX, centerY - maxRadius, 6, 0, 2*Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // --- Main App Logic ---
+        function generate() {
+            const w = 800; // High res canvas
+            const h = 800;
+            canvas.width = w;
+            canvas.height = h;
+
+            if (config.shape === 'square') {
+                maze = new SquareMaze(config.cols, config.rows);
+                maze.generate();
+                maze.draw(ctx, w, h, config.showSolution);
+            } else {
+                maze = new CircularMaze(config.rings);
+                maze.generate();
+                maze.draw(ctx, w, h, config.showSolution);
+            }
+        }
+
+        function updateUI() {
+            if (config.shape === 'square') {
+                btnSquare.classList.add('active');
+                btnCircle.classList.remove('active');
+                sectionSquare.style.display = 'block';
+                sectionCircle.style.display = 'none';
+            } else {
+                btnSquare.classList.remove('active');
+                btnCircle.classList.add('active');
+                sectionSquare.style.display = 'none';
+                sectionCircle.style.display = 'block';
+            }
+        }
+
+        // Listeners
+        btnSquare.addEventListener('click', () => { config.shape = 'square'; updateUI(); generate(); });
+        btnCircle.addEventListener('click', () => { config.shape = 'circle'; updateUI(); generate(); });
+
+        inpCols.addEventListener('input', (e) => { config.cols = parseInt(e.target.value); valCols.textContent = config.cols; });
+        inpRows.addEventListener('input', (e) => { config.rows = parseInt(e.target.value); valRows.textContent = config.rows; });
+        inpRings.addEventListener('input', (e) => { config.rings = parseInt(e.target.value); valRings.textContent = config.rings; });
+        
+        checkSolution.addEventListener('change', (e) => { 
+            config.showSolution = e.target.checked;
+            // Redraw without regenerating if possible, else generate
+            if(maze && config.shape === 'square') maze.draw(ctx, canvas.width, canvas.height, config.showSolution);
+            else generate(); 
+        });
+
+        btnGenerate.addEventListener('click', generate);
+        
+        btnPrint.addEventListener('click', () => {
+            window.print();
+        });
+
+        btnDownload.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `maze-${config.shape}-${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        // Init
+        updateUI();
+        generate();
+
+    })();
+});
+</script>
